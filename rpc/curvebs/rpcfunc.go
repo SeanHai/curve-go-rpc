@@ -25,8 +25,8 @@ package curvebs
 import (
 	"context"
 
-	"github.com/SeanHai/curve-go-rpc/proto/nameserver2"
-	"github.com/SeanHai/curve-go-rpc/proto/topology"
+	"github.com/SeanHai/curve-go-rpc/curvebs_proto/proto/nameserver2"
+	"github.com/SeanHai/curve-go-rpc/curvebs_proto/proto/topology"
 	"github.com/SeanHai/curve-go-rpc/rpc/baserpc"
 	"google.golang.org/grpc"
 )
@@ -241,4 +241,79 @@ func (rpc *GetFileInfo) NewRpcClient(cc grpc.ClientConnInterface) {
 
 func (rpc *GetFileInfo) Stub_Func(ctx context.Context, opt ...grpc.CallOption) (interface{}, error) {
 	return rpc.client.GetFileInfo(ctx, rpc.Request, opt...)
+}
+
+// delete volume
+type DeleteFile struct {
+	ctx     *baserpc.RpcContext
+	client  nameserver2.CurveFSServiceClient
+	Request *nameserver2.DeleteFileRequest
+}
+
+func (rpc *DeleteFile) NewRpcClient(cc grpc.ClientConnInterface) {
+	rpc.client = nameserver2.NewCurveFSServiceClient(cc)
+}
+
+func (rpc *DeleteFile) Stub_Func(ctx context.Context, opt ...grpc.CallOption) (interface{}, error) {
+	return rpc.client.DeleteFile(ctx, rpc.Request, opt...)
+}
+
+// recover volume
+type RecoverFile struct {
+	ctx     *baserpc.RpcContext
+	client  nameserver2.CurveFSServiceClient
+	Request *nameserver2.RecoverFileRequest
+}
+
+func (rpc *RecoverFile) NewRpcClient(cc grpc.ClientConnInterface) {
+	rpc.client = nameserver2.NewCurveFSServiceClient(cc)
+}
+
+func (rpc *RecoverFile) Stub_Func(ctx context.Context, opt ...grpc.CallOption) (interface{}, error) {
+	return rpc.client.RecoverFile(ctx, rpc.Request, opt...)
+}
+
+// create volume
+type CreateFile struct {
+	ctx     *baserpc.RpcContext
+	client  nameserver2.CurveFSServiceClient
+	Request *nameserver2.CreateFileRequest
+}
+
+func (rpc *CreateFile) NewRpcClient(cc grpc.ClientConnInterface) {
+	rpc.client = nameserver2.NewCurveFSServiceClient(cc)
+}
+
+func (rpc *CreateFile) Stub_Func(ctx context.Context, opt ...grpc.CallOption) (interface{}, error) {
+	return rpc.client.CreateFile(ctx, rpc.Request, opt...)
+}
+
+// extend volume
+type ExtendFile struct {
+	ctx     *baserpc.RpcContext
+	client  nameserver2.CurveFSServiceClient
+	Request *nameserver2.ExtendFileRequest
+}
+
+func (rpc *ExtendFile) NewRpcClient(cc grpc.ClientConnInterface) {
+	rpc.client = nameserver2.NewCurveFSServiceClient(cc)
+}
+
+func (rpc *ExtendFile) Stub_Func(ctx context.Context, opt ...grpc.CallOption) (interface{}, error) {
+	return rpc.client.ExtendFile(ctx, rpc.Request, opt...)
+}
+
+// update volume throttle params
+type UpdateFileThrottleParams struct {
+	ctx     *baserpc.RpcContext
+	client  nameserver2.CurveFSServiceClient
+	Request *nameserver2.UpdateFileThrottleParamsRequest
+}
+
+func (rpc *UpdateFileThrottleParams) NewRpcClient(cc grpc.ClientConnInterface) {
+	rpc.client = nameserver2.NewCurveFSServiceClient(cc)
+}
+
+func (rpc *UpdateFileThrottleParams) Stub_Func(ctx context.Context, opt ...grpc.CallOption) (interface{}, error) {
+	return rpc.client.UpdateFileThrottleParams(ctx, rpc.Request, opt...)
 }

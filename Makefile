@@ -36,4 +36,5 @@ test:
 	$(GO_TEST) $(TEST_FLAGS) ./rpc/...
 
 clean:
-	rm -rf proto
+	rm -rf curvebs_proto
+	rm -rf curvefs_proto

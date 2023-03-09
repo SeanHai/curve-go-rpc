@@ -27,8 +27,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/SeanHai/curve-go-rpc/proto/topology"
-	"github.com/SeanHai/curve-go-rpc/proto/topology/statuscode"
+	"github.com/SeanHai/curve-go-rpc/curvebs_proto/proto/topology"
+	"github.com/SeanHai/curve-go-rpc/curvebs_proto/proto/topology/statuscode"
 	"github.com/SeanHai/curve-go-rpc/rpc/baserpc"
 	"github.com/SeanHai/curve-go-rpc/rpc/common"
 )
@@ -148,11 +148,11 @@ func (cli *MdsClient) ListPhysicalPool() ([]PhysicalPool, error) {
 	Rpc := &ListPhysicalPoolRpc{}
 	Rpc.ctx = baserpc.NewRpcContext(cli.addrs, LIST_PHYSICAL_POOL_FUNC)
 	Rpc.Request = &topology.ListPhysicalPoolRequest{}
+
 	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
 	if ret.Err != nil {
 		return nil, ret.Err
 	}
-
 	response := ret.Result.(*topology.ListPhysicalPoolResponse)
 	statusCode := response.GetStatusCode()
 	if statusCode != int32(statuscode.TopoStatusCode_Success) {
@@ -270,17 +270,16 @@ func (cli *MdsClient) GetLogicalPool(poolId uint32) (LogicalPool, error) {
 	Rpc.Request = &topology.GetLogicalPoolRequest{
 		LogicalPoolID: &poolId,
 	}
+
 	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
 	if ret.Err != nil {
 		return info, ret.Err
 	}
-
 	response := ret.Result.(*topology.GetLogicalPoolResponse)
 	statusCode := response.GetStatusCode()
 	if statusCode != int32(statuscode.TopoStatusCode_Success) {
 		return info, fmt.Errorf(statuscode.TopoStatusCode_name[statusCode])
 	}
-
 	pool := response.GetLogicalPoolInfo()
 	info.Id = pool.GetLogicalPoolID()
 	info.Name = pool.GetLogicalPoolName()
@@ -299,11 +298,11 @@ func (cli *MdsClient) ListPoolZone(poolId uint32) ([]Zone, error) {
 	Rpc.Request = &topology.ListPoolZoneRequest{
 		PhysicalPoolID: &poolId,
 	}
+
 	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
 	if ret.Err != nil {
 		return nil, ret.Err
 	}
-
 	response := ret.Result.(*topology.ListPoolZoneResponse)
 	statusCode := response.GetStatusCode()
 	if statusCode != int32(statuscode.TopoStatusCode_Success) {
@@ -330,11 +329,11 @@ func (cli *MdsClient) ListZoneServer(zoneId uint32) ([]Server, error) {
 	Rpc.Request = &topology.ListZoneServerRequest{
 		ZoneID: &zoneId,
 	}
+
 	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
 	if ret.Err != nil {
 		return nil, ret.Err
 	}
-
 	response := ret.Result.(*topology.ListZoneServerResponse)
 	statusCode := response.GetStatusCode()
 	if statusCode != int32(statuscode.TopoStatusCode_Success) {
@@ -404,11 +403,11 @@ func (cli *MdsClient) ListChunkServer(serverId uint32) ([]ChunkServer, error) {
 	Rpc.Request = &topology.ListChunkServerRequest{
 		ServerID: &serverId,
 	}
+
 	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
 	if ret.Err != nil {
 		return nil, ret.Err
 	}
-
 	response := ret.Result.(*topology.ListChunkServerResponse)
 	statusCode := response.GetStatusCode()
 	if statusCode != int32(statuscode.TopoStatusCode_Success) {
@@ -441,11 +440,11 @@ func (cli *MdsClient) GetChunkServerInCluster() ([]ChunkServer, error) {
 	Rpc := &GetChunkServerInCluster{}
 	Rpc.ctx = baserpc.NewRpcContext(cli.addrs, GET_CHUNKSERVER_IN_CLUSTER_FUNC)
 	Rpc.Request = &topology.GetChunkServerInClusterRequest{}
+
 	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
 	if ret.Err != nil {
 		return nil, ret.Err
 	}
-
 	response := ret.Result.(*topology.GetChunkServerInClusterResponse)
 	statusCode := response.GetStatusCode()
 	if statusCode != int32(statuscode.TopoStatusCode_Success) {
@@ -480,6 +479,7 @@ func (cli *MdsClient) GetCopySetsInChunkServer(ip string, port uint32) ([]CopySe
 		HostIp: &ip,
 		Port:   &port,
 	}
+
 	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
 	if ret.Err != nil {
 		return nil, ret.Err

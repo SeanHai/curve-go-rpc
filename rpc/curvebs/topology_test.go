@@ -29,7 +29,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/SeanHai/curve-go-rpc/proto/topology"
+	"github.com/SeanHai/curve-go-rpc/curvebs_proto/proto/topology"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )

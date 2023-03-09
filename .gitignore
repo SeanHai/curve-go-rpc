@@ -1,4 +1,6 @@
 *.log
 .vscode
 proto
-external/
+external/*
+curvebs_proto
+curvefs_proto

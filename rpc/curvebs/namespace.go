@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/SeanHai/curve-go-rpc/proto/nameserver2"
+	"github.com/SeanHai/curve-go-rpc/curvebs_proto/proto/nameserver2"
 	"github.com/SeanHai/curve-go-rpc/rpc/baserpc"
 	"github.com/SeanHai/curve-go-rpc/rpc/common"
 )
@@ -56,10 +56,15 @@ const (
 	BPS_WRITE  = "BPS_WRITE"
 
 	// apis
-	GET_FILE_ALLOC_SIZE_FUNC = "GetAllocatedSize"
-	LIST_DIR_FUNC            = "ListDir"
-	GET_FILE_INFO            = "GetFileInfo"
-	GET_FILE_SIZE            = "GetFileSize"
+	GET_FILE_ALLOC_SIZE_FUNC    = "GetAllocatedSize"
+	LIST_DIR_FUNC               = "ListDir"
+	GET_FILE_INFO               = "GetFileInfo"
+	GET_FILE_SIZE               = "GetFileSize"
+	DELETE_FILE                 = "DeleteFile"
+	CREATE_FILE                 = "CreateFile"
+	EXTEND_FILE                 = "ExtendFile"
+	RECOVER_FILE                = "RecoverFile"
+	UPDATE_FILE_THROTTLE_PARAMS = "UpdateFileThrottleParams"
 )
 
 type ThrottleParams struct {
@@ -97,11 +102,11 @@ func (cli *MdsClient) GetFileAllocatedSize(filename string) (uint64, map[uint32]
 	Rpc.Request = &nameserver2.GetAllocatedSizeRequest{
 		FileName: &filename,
 	}
+
 	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
 	if ret.Err != nil {
 		return 0, nil, ret.Err
 	}
-
 	response := ret.Result.(*nameserver2.GetAllocatedSizeResponse)
 	statusCode := response.GetStatusCode()
 	if statusCode != nameserver2.StatusCode_kOK {
@@ -114,7 +119,24 @@ func (cli *MdsClient) GetFileAllocatedSize(filename string) (uint64, map[uint32]
 	return response.GetAllocatedSize() / common.GiB, infos, nil
 }
 
-func getFileType(t nameserver2.FileType) string {
+func getFileType(t string) nameserver2.FileType {
+	switch t {
+	case INODE_DIRECTORY:
+		return nameserver2.FileType_INODE_DIRECTORY
+	case INODE_PAGEFILE:
+		return nameserver2.FileType_INODE_PAGEFILE
+	case INODE_APPENDFILE:
+		return nameserver2.FileType_INODE_APPENDFILE
+	case INODE_APPENDECFILE:
+		return nameserver2.FileType_INODE_APPENDECFILE
+	case INODE_SNAPSHOT_PAGEFILE:
+		return nameserver2.FileType_INODE_SNAPSHOT_PAGEFILE
+	default:
+		return -1
+	}
+}
+
+func getFileTypeStr(t nameserver2.FileType) string {
 	switch t {
 	case nameserver2.FileType_INODE_DIRECTORY:
 		return INODE_DIRECTORY
@@ -150,7 +172,7 @@ func getFileStatus(s nameserver2.FileStatus) string {
 	}
 }
 
-func getThrottleType(t nameserver2.ThrottleType) string {
+func getThrottleTypeStr(t nameserver2.ThrottleType) string {
 	switch t {
 	case nameserver2.ThrottleType_IOPS_TOTAL:
 		return IOPS_TOTAL
@@ -169,6 +191,25 @@ func getThrottleType(t nameserver2.ThrottleType) string {
 	}
 }
 
+func getThrottleType(t string) nameserver2.ThrottleType {
+	switch t {
+	case IOPS_TOTAL:
+		return nameserver2.ThrottleType_IOPS_TOTAL
+	case IOPS_READ:
+		return nameserver2.ThrottleType_IOPS_READ
+	case IOPS_WRITE:
+		return nameserver2.ThrottleType_IOPS_WRITE
+	case BPS_TOTAL:
+		return nameserver2.ThrottleType_BPS_TOTAL
+	case BPS_READ:
+		return nameserver2.ThrottleType_BPS_READ
+	case BPS_WRITE:
+		return nameserver2.ThrottleType_BPS_WRITE
+	default:
+		return 0
+	}
+}
+
 func (cli *MdsClient) ListDir(filename, owner, sig string, date uint64) ([]FileInfo, error) {
 	Rpc := &ListDir{}
 	Rpc.ctx = baserpc.NewRpcContext(cli.addrs, LIST_DIR_FUNC)
@@ -180,11 +221,11 @@ func (cli *MdsClient) ListDir(filename, owner, sig string, date uint64) ([]FileI
 	if sig != "" {
 		Rpc.Request.Signature = &sig
 	}
+
 	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
 	if ret.Err != nil {
 		return nil, ret.Err
 	}
-
 	response := ret.Result.(*nameserver2.ListDirResponse)
 	statusCode := response.GetStatusCode()
 	if statusCode != nameserver2.StatusCode_kOK {
@@ -196,7 +237,7 @@ func (cli *MdsClient) ListDir(filename, owner, sig string, date uint64) ([]FileI
 		info.Id = v.GetId()
 		info.FileName = v.GetFileName()
 		info.ParentId = v.GetParentId()
-		info.FileType = getFileType(v.GetFileType())
+		info.FileType = getFileTypeStr(v.GetFileType())
 		info.Owner = v.GetOwner()
 		info.ChunkSize = v.GetChunkSize()
 		info.SegmentSize = v.GetSegmentSize()
@@ -212,7 +253,7 @@ func (cli *MdsClient) ListDir(filename, owner, sig string, date uint64) ([]FileI
 		info.ThrottleParams = []ThrottleParams{}
 		for _, p := range v.GetThrottleParams().GetThrottleParams() {
 			var param ThrottleParams
-			param.Type = getThrottleType(p.GetType())
+			param.Type = getThrottleTypeStr(p.GetType())
 			param.Limit = p.GetLimit()
 			param.Burst = p.GetBurst()
 			param.BurstLength = p.GetBurstLength()
@@ -236,11 +277,11 @@ func (cli *MdsClient) GetFileInfo(filename, owner, sig string, date uint64) (Fil
 	if sig != "" {
 		Rpc.Request.Signature = &sig
 	}
+
 	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
 	if ret.Err != nil {
 		return info, ret.Err
 	}
-
 	response := ret.Result.(*nameserver2.GetFileInfoResponse)
 	statusCode := response.GetStatusCode()
 	if statusCode != nameserver2.StatusCode_kOK {
@@ -250,7 +291,7 @@ func (cli *MdsClient) GetFileInfo(filename, owner, sig string, date uint64) (Fil
 	info.Id = v.GetId()
 	info.FileName = v.GetFileName()
 	info.ParentId = v.GetParentId()
-	info.FileType = getFileType(v.GetFileType())
+	info.FileType = getFileTypeStr(v.GetFileType())
 	info.Owner = v.GetOwner()
 	info.ChunkSize = v.GetChunkSize()
 	info.SegmentSize = v.GetSegmentSize()
@@ -266,7 +307,7 @@ func (cli *MdsClient) GetFileInfo(filename, owner, sig string, date uint64) (Fil
 	info.ThrottleParams = []ThrottleParams{}
 	for _, p := range v.GetThrottleParams().GetThrottleParams() {
 		var param ThrottleParams
-		param.Type = getThrottleType(p.GetType())
+		param.Type = getThrottleTypeStr(p.GetType())
 		param.Limit = p.GetLimit()
 		param.Burst = p.GetBurst()
 		param.BurstLength = p.GetBurstLength()
@@ -295,4 +336,148 @@ func (cli *MdsClient) GetFileSize(fileName string) (uint64, error) {
 	}
 	size = response.GetFileSize() / common.GiB
 	return size, nil
+}
+
+func (cli *MdsClient) DeleteFile(filename, owner, sig string, fileId, date uint64, forceDelete bool) error {
+	Rpc := &DeleteFile{}
+	Rpc.ctx = baserpc.NewRpcContext(cli.addrs, DELETE_FILE)
+	Rpc.Request = &nameserver2.DeleteFileRequest{
+		FileName:    &filename,
+		Owner:       &owner,
+		Date:        &date,
+		ForceDelete: &forceDelete,
+	}
+	if sig != "" {
+		Rpc.Request.Signature = &sig
+	}
+	if fileId != 0 {
+		Rpc.Request.FileId = &fileId
+	}
+
+	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
+	if ret.Err != nil {
+		return ret.Err
+	}
+	response := ret.Result.(*nameserver2.DeleteFileResponse)
+	statusCode := response.GetStatusCode()
+	if statusCode != nameserver2.StatusCode_kOK {
+		return fmt.Errorf(nameserver2.StatusCode_name[int32(statusCode)])
+	}
+	return nil
+}
+
+func (cli *MdsClient) RecoverFile(filename, owner, sig string, fileId, date uint64) error {
+	Rpc := &RecoverFile{}
+	Rpc.ctx = baserpc.NewRpcContext(cli.addrs, RECOVER_FILE)
+	Rpc.Request = &nameserver2.RecoverFileRequest{
+		FileName: &filename,
+		Owner:    &owner,
+		Date:     &date,
+	}
+	if sig != "" {
+		Rpc.Request.Signature = &sig
+	}
+	if fileId != 0 {
+		Rpc.Request.FileId = &fileId
+	}
+
+	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
+	if ret.Err != nil {
+		return ret.Err
+	}
+	response := ret.Result.(*nameserver2.RecoverFileResponse)
+	statusCode := response.GetStatusCode()
+	if statusCode != nameserver2.StatusCode_kOK {
+		return fmt.Errorf(nameserver2.StatusCode_name[int32(statusCode)])
+	}
+	return nil
+}
+
+func (cli *MdsClient) CreateFile(filename, ftype, owner, sig string, length, date, stripeUnit, stripeCount uint64) error {
+	Rpc := &CreateFile{}
+	Rpc.ctx = baserpc.NewRpcContext(cli.addrs, CREATE_FILE)
+	fileType := getFileType(ftype)
+	Rpc.Request = &nameserver2.CreateFileRequest{
+		FileName: &filename,
+		FileType: &fileType,
+		Owner:    &owner,
+		Date:     &date,
+	}
+	if ftype != INODE_DIRECTORY {
+		Rpc.Request.FileLength = &length
+	}
+	if sig != "" {
+		Rpc.Request.Signature = &sig
+	}
+	if stripeCount != 0 && stripeUnit != 0 {
+		Rpc.Request.StripeCount = &stripeCount
+		Rpc.Request.StripeUnit = &stripeUnit
+	}
+
+	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
+	if ret.Err != nil {
+		return ret.Err
+	}
+	response := ret.Result.(*nameserver2.CreateFileResponse)
+	statusCode := response.GetStatusCode()
+	if statusCode != nameserver2.StatusCode_kOK {
+		return fmt.Errorf(nameserver2.StatusCode_name[int32(statusCode)])
+	}
+	return nil
+}
+
+func (cli *MdsClient) ExtendFile(filename, owner, sig string, newSize, date uint64) error {
+	Rpc := &ExtendFile{}
+	Rpc.ctx = baserpc.NewRpcContext(cli.addrs, EXTEND_FILE)
+	Rpc.Request = &nameserver2.ExtendFileRequest{
+		FileName: &filename,
+		NewSize:  &newSize,
+		Owner:    &owner,
+		Date:     &date,
+	}
+	if sig != "" {
+		Rpc.Request.Signature = &sig
+	}
+
+	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
+	if ret.Err != nil {
+		return ret.Err
+	}
+	response := ret.Result.(*nameserver2.ExtendFileResponse)
+	statusCode := response.GetStatusCode()
+	if statusCode != nameserver2.StatusCode_kOK {
+		return fmt.Errorf(nameserver2.StatusCode_name[int32(statusCode)])
+	}
+	return nil
+}
+
+func (cli *MdsClient) UpdateFileThrottleParams(filename, owner, sig string, date uint64, params ThrottleParams) error {
+	Rpc := &UpdateFileThrottleParams{}
+	Rpc.ctx = baserpc.NewRpcContext(cli.addrs, UPDATE_FILE_THROTTLE_PARAMS)
+	burstType := getThrottleType(params.Type)
+	Rpc.Request = &nameserver2.UpdateFileThrottleParamsRequest{
+		FileName: &filename,
+		Owner:    &owner,
+		Date:     &date,
+		ThrottleParams: &nameserver2.ThrottleParams{
+			Type:        &burstType,
+			Limit:       &params.Limit,
+			Burst:       &params.Burst,
+			BurstLength: &params.BurstLength,
+		},
+	}
+	if sig != "" {
+		Rpc.Request.Signature = &sig
+	}
+
+	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
+	if ret.Err != nil {
+		return ret.Err
+	}
+	response := ret.Result.(*nameserver2.UpdateFileThrottleParamsResponse)
+	statusCode := response.GetStatusCode()
+	if statusCode != nameserver2.StatusCode_kOK {
+		return fmt.Errorf(nameserver2.StatusCode_name[int32(statusCode)])
+	}
+	return nil
 }
