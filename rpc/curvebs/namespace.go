@@ -65,6 +65,7 @@ const (
 	EXTEND_FILE                 = "ExtendFile"
 	RECOVER_FILE                = "RecoverFile"
 	UPDATE_FILE_THROTTLE_PARAMS = "UpdateFileThrottleParams"
+	FIND_FILE_MOUNTPOINT        = "FindFileMountPoint"
 )
 
 type ThrottleParams struct {
@@ -94,6 +95,7 @@ type FileInfo struct {
 	StripeCount          uint64           `json:"stripeCount"`
 	ThrottleParams       []ThrottleParams `json:"throttleParams"`
 	Epoch                uint64           `json:"epoch"`
+	MountPoints          []string         `json:"mountPoints"`
 }
 
 func (cli *MdsClient) GetFileAllocatedSize(filename string) (uint64, map[uint32]uint64, error) {
@@ -480,4 +482,27 @@ func (cli *MdsClient) UpdateFileThrottleParams(filename, owner, sig string, date
 		return fmt.Errorf(nameserver2.StatusCode_name[int32(statusCode)])
 	}
 	return nil
+}
+
+func (cli *MdsClient) FindFileMountPoint(filename string) ([]string, error) {
+	info := []string{}
+	Rpc := &FindFileMountPoint{}
+	Rpc.ctx = baserpc.NewRpcContext(cli.addrs, FIND_FILE_MOUNTPOINT)
+	Rpc.Request = &nameserver2.FindFileMountPointRequest{
+		FileName: &filename,
+	}
+
+	ret := cli.baseClient.SendRpc(Rpc.ctx, Rpc)
+	if ret.Err != nil {
+		return nil, ret.Err
+	}
+	response := ret.Result.(*nameserver2.FindFileMountPointResponse)
+	statusCode := response.GetStatusCode()
+	if statusCode != nameserver2.StatusCode_kOK {
+		return info, fmt.Errorf(nameserver2.StatusCode_name[int32(statusCode)])
+	}
+	for _, v := range response.GetClientInfo() {
+		info = append(info, fmt.Sprintf("%s:%d", v.GetIp(), v.GetPort()))
+	}
+	return info, nil
 }

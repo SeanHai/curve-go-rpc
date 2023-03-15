@@ -317,3 +317,18 @@ func (rpc *UpdateFileThrottleParams) NewRpcClient(cc grpc.ClientConnInterface) {
 func (rpc *UpdateFileThrottleParams) Stub_Func(ctx context.Context, opt ...grpc.CallOption) (interface{}, error) {
 	return rpc.client.UpdateFileThrottleParams(ctx, rpc.Request, opt...)
 }
+
+// find volume mountpoints
+type FindFileMountPoint struct {
+	ctx     *baserpc.RpcContext
+	client  nameserver2.CurveFSServiceClient
+	Request *nameserver2.FindFileMountPointRequest
+}
+
+func (rpc *FindFileMountPoint) NewRpcClient(cc grpc.ClientConnInterface) {
+	rpc.client = nameserver2.NewCurveFSServiceClient(cc)
+}
+
+func (rpc *FindFileMountPoint) Stub_Func(ctx context.Context, opt ...grpc.CallOption) (interface{}, error) {
+	return rpc.client.FindFileMountPoint(ctx, rpc.Request, opt...)
+}
