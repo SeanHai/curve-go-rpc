@@ -102,6 +102,7 @@ func (cli *BaseRpc) SendRpc(ctx *RpcContext, rpcFunc Rpc) *RpcResult {
 					Err:    err,
 					Result: res,
 				}
+				conn.Close()
 			}
 		}(addr)
 	}
