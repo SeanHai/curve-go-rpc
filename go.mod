@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
+	github.com/processout/grpc-go-pool v1.2.2-0.20200228131710-c0fcf3af0014
 	google.golang.org/grpc v1.50.0
 	google.golang.org/protobuf v1.28.1
 )

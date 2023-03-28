@@ -23,8 +23,6 @@
 package curvebs
 
 import (
-	"time"
-
 	"github.com/SeanHai/curve-go-rpc/rpc/baserpc"
 )
 
@@ -41,10 +39,7 @@ type MdsClient struct {
 
 func NewMdsClient(option MdsClientOption) *MdsClient {
 	return &MdsClient{
-		addrs: option.Addrs,
-		baseClient: &baserpc.BaseRpc{
-			Timeout:    time.Duration(option.TimeoutMs * int(time.Millisecond)),
-			RetryTimes: option.RetryTimes,
-		},
+		addrs:      option.Addrs,
+		baseClient: baserpc.NewBaseRpc(option.Addrs, option.TimeoutMs, option.RetryTimes),
 	}
 }

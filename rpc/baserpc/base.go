@@ -28,14 +28,22 @@ import (
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	pool "github.com/processout/grpc-go-pool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const (
+	POOL_INIT_CONN_NUM = 0
+	POOL_CONN_CAPACITY = 10
+	IDLE_TIMEOUT_SEC   = 10
+)
+
 type BaseRpc struct {
 	Timeout    time.Duration
 	RetryTimes uint32
+	ConnPools  map[string]*pool.Pool
 }
 
 type RpcContext struct {
@@ -61,8 +69,23 @@ func NewRpcContext(addrs []string, funcName string) *RpcContext {
 	}
 }
 
-func (cli *BaseRpc) getOrCreateConn(addr string, ctx context.Context) (*grpc.ClientConn, error) {
-	// TODO: conn pool maybe needed
+func NewBaseRpc(addrs []string, timeoutMs int, retryTimes uint32) (*BaseRpc) {
+	client := &BaseRpc{
+		Timeout:    time.Duration(timeoutMs * int(time.Millisecond)),
+		RetryTimes: retryTimes,
+		ConnPools:  make(map[string]*pool.Pool),
+	}
+	for _, addr := range addrs {
+		p, err := pool.New(func() (*grpc.ClientConn, error) { return client.createConn(addr) },
+			POOL_INIT_CONN_NUM, POOL_CONN_CAPACITY, time.Duration(IDLE_TIMEOUT_SEC*int(time.Second)))
+		if err == nil {
+			client.ConnPools[addr] = p
+		}
+	}
+	return client
+}
+
+func (cli *BaseRpc) createConn(addr string) (*grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cli.Timeout)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
@@ -72,8 +95,8 @@ func (cli *BaseRpc) getOrCreateConn(addr string, ctx context.Context) (*grpc.Cli
 	return conn, nil
 }
 
-func (cli *BaseRpc) SendRpc(ctx *RpcContext, rpcFunc Rpc) *RpcResult {
-	size := len(ctx.addrs)
+func (cli *BaseRpc) SendRpc(opt *RpcContext, rpcFunc Rpc) *RpcResult {
+	size := len(opt.addrs)
 	if size == 0 {
 		return &RpcResult{
 			Key:    "",
@@ -82,27 +105,43 @@ func (cli *BaseRpc) SendRpc(ctx *RpcContext, rpcFunc Rpc) *RpcResult {
 		}
 	}
 	results := make(chan RpcResult, size)
-	for _, addr := range ctx.addrs {
+	for _, addr := range opt.addrs {
 		go func(address string) {
+			var conn *grpc.ClientConn
+			var err error
 			ctx, cancel := context.WithTimeout(context.Background(), cli.Timeout)
 			defer cancel()
-			conn, err := cli.getOrCreateConn(address, ctx)
-			if err != nil {
-				results <- RpcResult{
-					Key:    address,
-					Err:    err,
-					Result: nil,
+			if _, ok := cli.ConnPools[address]; !ok {
+				conn, err = cli.createConn(address)
+				if err != nil {
+					results <- RpcResult{
+						Key:    address,
+						Err:    err,
+						Result: nil,
+					}
+					return
 				}
+				defer conn.Close()
 			} else {
-				rpcFunc.NewRpcClient(conn)
-				res, err := rpcFunc.Stub_Func(ctx, grpc_retry.WithMax(uint(cli.RetryTimes)),
-					grpc_retry.WithCodes(codes.Unknown, codes.Unavailable, codes.DeadlineExceeded))
-				results <- RpcResult{
-					Key:    address,
-					Err:    err,
-					Result: res,
+				cconn, err := cli.ConnPools[address].Get(ctx)
+				if err != nil {
+					results <- RpcResult{
+						Key:    address,
+						Err:    err,
+						Result: nil,
+					}
+					return
 				}
-				conn.Close()
+				conn = cconn.ClientConn
+				defer cconn.Close()
+			}
+			rpcFunc.NewRpcClient(conn)
+			res, err := rpcFunc.Stub_Func(ctx, grpc_retry.WithMax(uint(cli.RetryTimes)),
+				grpc_retry.WithCodes(codes.Unknown, codes.Unavailable, codes.DeadlineExceeded))
+			results <- RpcResult{
+				Key:    address,
+				Err:    err,
+				Result: res,
 			}
 		}(addr)
 	}
